@@ -41,8 +41,9 @@ ClickHouse Cloud manages rolling upgrades, so older replicas expose versioned sy
 - **`metric_log`**: The source tables across replicas collectively expose 1572 columns, while the consolidated table defines 1556. The INSERT uses an explicit column list to select only the columns present in the target schema.
 - **`query_log`**: Two columns (`authenticated_user`, `is_internal`) were added in a newer ClickHouse release and are absent from older replica tables. The backfill uses a `UNION ALL` to preserve real values from current-version replicas (matched via `^query_log$`) while falling back to empty defaults for older ones (matched via `query_log_.*`).
 
-## Dashboard
+## Dashboards
 
+### Consolidated Dashboard
 `clickhouse-dashboard.json` can be imported directly into the ClickHouse Cloud dashboard UI. It targets the `clickstack_consolidated` database and contains 12 panels across three sections:
 
 **Selects**
@@ -62,6 +63,9 @@ ClickHouse Cloud manages rolling upgrades, so older replicas expose versioned sy
 - Disk I/O
 - S3 Requests
 - Network (receive/send bytes)
+
+### Default Dashboard
+`clickhouse-dashboard-default.json` can be imported directly into the ClickHouse Cloud dashboard UI. It targets the `system` database and contains the same 12 panels as the consolidated version, but only taking the `system` schema into account (no historical data). Can be created without any additional materialized view, historical ingestions or new tables.
 
 ## Usage
 
