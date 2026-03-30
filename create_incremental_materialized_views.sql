@@ -1,0 +1,3 @@
+CREATE MATERIALIZED VIEW clickstack_consolidated_asynchronous_metric_log_mv TO clickstack_consolidated.asynchronous_metric_log AS SELECT * FROM system.asynchronous_metric_log;
+CREATE MATERIALIZED VIEW clickstack_consolidated_metric_log_mv TO clickstack_consolidated.metric_log AS SELECT * FROM system.metric_log;
+CREATE MATERIALIZED VIEW clickstack_consolidated_query_log_mv TO clickstack_consolidated.query_log AS SELECT * FROM system.query_log;

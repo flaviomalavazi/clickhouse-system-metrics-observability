@@ -205,3 +205,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Credentials — never commit
+.env
+.env.local
+
+# Claude Code local settings (may contain API keys)
+.claude/

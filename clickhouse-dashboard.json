@@ -1,0 +1,219 @@
+{
+  "version": "0.1.0",
+  "name": "ClickHouse Dashboard",
+  "containers": [
+    {
+      "id": "section-selects",
+      "type": "section",
+      "title": "Selects",
+      "collapsed": false
+    },
+    {
+      "id": "section-inserts",
+      "type": "section",
+      "title": "Inserts",
+      "collapsed": false
+    },
+    {
+      "id": "section-infrastructure",
+      "type": "section",
+      "title": "Infrastructure",
+      "collapsed": false
+    }
+  ],
+  "filters": [],
+  "tiles": [
+    {
+      "id": "selects-query-latency",
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 5,
+      "containerId": "section-selects",
+      "config": {
+        "name": "Query Latency (p50 / p90 / p99)",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "line",
+        "sqlTemplate": "SELECT\n  toStartOfInterval(event_time, INTERVAL {intervalSeconds:Int64} second) AS ts,\n  quantile(0.5)(query_duration_ms)  AS \"p50 (ms)\",\n  quantile(0.9)(query_duration_ms)  AS \"p90 (ms)\",\n  quantile(0.99)(query_duration_ms) AS \"p99 (ms)\"\nFROM clickstack_consolidated.query_log\nWHERE event_time >= fromUnixTimestamp64Milli({startDateMilliseconds:Int64})\n  AND event_time <  fromUnixTimestamp64Milli({endDateMilliseconds:Int64})\n  AND query_kind = 'Select'\n  AND (type = 'ExceptionWhileProcessing' OR type = 'QueryFinish')\nGROUP BY ts\nORDER BY ts"
+      }
+    },
+    {
+      "id": "selects-query-count-by-table",
+      "x": 0,
+      "y": 5,
+      "w": 12,
+      "h": 8,
+      "containerId": "section-selects",
+      "config": {
+        "name": "Query Count by Table",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "line",
+        "sqlTemplate": "SELECT\n  toStartOfInterval(event_time, INTERVAL {intervalSeconds:Int64} second) AS ts,\n  arrayStringConcat(tables, ', ') AS table,\n  type,\n  count() AS \"Query Count\"\nFROM clickstack_consolidated.query_log\nWHERE event_time >= fromUnixTimestamp64Milli({startDateMilliseconds:Int64})\n  AND event_time <  fromUnixTimestamp64Milli({endDateMilliseconds:Int64})\n  AND query_kind = 'Select'\n  AND (type = 'ExceptionWhileProcessing' OR type = 'QueryFinish' OR type = 'ExceptionBeforeStart')\nGROUP BY ts, table, type\nORDER BY ts\nLIMIT 1000"
+      }
+    },
+    {
+      "id": "selects-most-time-consuming",
+      "x": 0,
+      "y": 13,
+      "w": 12,
+      "h": 8,
+      "containerId": "section-selects",
+      "config": {
+        "name": "Most Time Consuming Query Patterns",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "table",
+        "sqlTemplate": "SELECT\n  count()                               AS \"Count\",\n  sum(query_duration_ms)                AS \"Total Duration (ms)\",\n  any(query)                            AS \"Query Example\",\n  normalized_query_hash                 AS \"Query Hash\",\n  arrayStringConcat(tables, ', ')       AS \"Tables\"\nFROM clickstack_consolidated.query_log\nWHERE event_time >= fromUnixTimestamp64Milli({startDateMilliseconds:Int64})\n  AND event_time <  fromUnixTimestamp64Milli({endDateMilliseconds:Int64})\n  AND (type = 'ExceptionWhileProcessing' OR type = 'QueryFinish')\n  AND query_kind = 'Select'\nGROUP BY normalized_query_hash, tables\nORDER BY sum(query_duration_ms) DESC\nLIMIT 20"
+      }
+    },
+    {
+      "id": "selects-slowest-queries",
+      "x": 0,
+      "y": 21,
+      "w": 12,
+      "h": 8,
+      "containerId": "section-selects",
+      "config": {
+        "name": "Slowest Queries",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "table",
+        "sqlTemplate": "SELECT\n  event_time,\n  query_kind,\n  read_rows,\n  formatReadableSize(memory_usage) AS memory_usage,\n  query_duration_ms,\n  query\nFROM clickstack_consolidated.query_log\nWHERE event_time >= fromUnixTimestamp64Milli({startDateMilliseconds:Int64})\n  AND event_time <  fromUnixTimestamp64Milli({endDateMilliseconds:Int64})\n  AND (type = 'ExceptionWhileProcessing' OR type = 'QueryFinish')\n  AND query_kind = 'Select'\nORDER BY query_duration_ms DESC\nLIMIT 100"
+      }
+    },
+    {
+      "id": "inserts-per-table",
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 8,
+      "containerId": "section-inserts",
+      "config": {
+        "name": "Insert Queries Per Table",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "line",
+        "sqlTemplate": "SELECT\n  toStartOfInterval(event_time, INTERVAL {intervalSeconds:Int64} second) AS ts,\n  arrayStringConcat(tables, ', ') AS table,\n  count() AS \"Insert Queries\"\nFROM clickstack_consolidated.query_log\nWHERE event_time >= fromUnixTimestamp64Milli({startDateMilliseconds:Int64})\n  AND event_time <  fromUnixTimestamp64Milli({endDateMilliseconds:Int64})\n  AND query_kind = 'Insert'\n  AND type = 'QueryStart'\nGROUP BY ts, table\nORDER BY ts"
+      }
+    },
+    {
+      "id": "inserts-max-active-parts",
+      "x": 0,
+      "y": 8,
+      "w": 12,
+      "h": 4,
+      "containerId": "section-inserts",
+      "config": {
+        "name": "Max Active Parts per Partition",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "line",
+        "sqlTemplate": "SELECT\n  toStartOfInterval(event_time, INTERVAL {intervalSeconds:Int64} second) AS ts,\n  max(value) AS \"Max Parts per Partition\"\nFROM clickstack_consolidated.asynchronous_metric_log\nWHERE event_time >= fromUnixTimestamp64Milli({startDateMilliseconds:Int64})\n  AND event_time <  fromUnixTimestamp64Milli({endDateMilliseconds:Int64})\n  AND metric = 'MaxPartCountForPartition'\nGROUP BY ts\nORDER BY ts"
+      }
+    },
+    {
+      "id": "inserts-active-parts-table",
+      "x": 0,
+      "y": 12,
+      "w": 12,
+      "h": 8,
+      "containerId": "section-inserts",
+      "config": {
+        "name": "Active Parts Per Partition",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "table",
+        "sqlTemplate": "SELECT\n  count()        AS \"Part Count\",\n  sum(rows)      AS \"Rows\",\n  database       AS \"Database\",\n  table          AS \"Table\",\n  partition      AS \"Partition\"\nFROM system.parts\nWHERE active = 1\nGROUP BY database, table, partition\nORDER BY count() DESC\nLIMIT 100"
+      }
+    },
+    {
+      "id": "infra-cpu",
+      "x": 0,
+      "y": 0,
+      "w": 6,
+      "h": 8,
+      "containerId": "section-infrastructure",
+      "config": {
+        "name": "CPU Usage (Cores)",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "line",
+        "sqlTemplate": "SELECT\n  toStartOfInterval(event_time, INTERVAL {intervalSeconds:Int64} second) AS ts,\n  avg(ProfileEvent_OSCPUVirtualTimeMicroseconds) / 1000000 AS \"CPU Cores\"\nFROM clickstack_consolidated.metric_log\nWHERE event_time >= fromUnixTimestamp64Milli({startDateMilliseconds:Int64})\n  AND event_time <  fromUnixTimestamp64Milli({endDateMilliseconds:Int64})\nGROUP BY ts\nORDER BY ts"
+      }
+    },
+    {
+      "id": "infra-memory",
+      "x": 6,
+      "y": 0,
+      "w": 6,
+      "h": 8,
+      "containerId": "section-infrastructure",
+      "config": {
+        "name": "Memory Usage",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "line",
+        "numberFormat": {
+          "output": "byte",
+          "mantissa": 2
+        },
+        "sqlTemplate": "SELECT\n  toStartOfInterval(event_time, INTERVAL {intervalSeconds:Int64} second) AS ts,\n  avg(CurrentMetric_MemoryTracking) AS \"Bytes\"\nFROM clickstack_consolidated.metric_log\nWHERE event_time >= fromUnixTimestamp64Milli({startDateMilliseconds:Int64})\n  AND event_time <  fromUnixTimestamp64Milli({endDateMilliseconds:Int64})\nGROUP BY ts\nORDER BY ts"
+      }
+    },
+    {
+      "id": "infra-disk",
+      "x": 0,
+      "y": 8,
+      "w": 6,
+      "h": 8,
+      "containerId": "section-infrastructure",
+      "config": {
+        "name": "Disk I/O",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "line",
+        "numberFormat": {
+          "output": "byte",
+          "mantissa": 2
+        },
+        "sqlTemplate": "SELECT\n  toStartOfInterval(event_time, INTERVAL {intervalSeconds:Int64} second) AS ts,\n  avg(ProfileEvent_OSReadChars)  AS \"Bytes Read\",\n  avg(ProfileEvent_OSWriteChars) AS \"Bytes Written\"\nFROM clickstack_consolidated.metric_log\nWHERE event_time >= fromUnixTimestamp64Milli({startDateMilliseconds:Int64})\n  AND event_time <  fromUnixTimestamp64Milli({endDateMilliseconds:Int64})\nGROUP BY ts\nORDER BY ts"
+      }
+    },
+    {
+      "id": "infra-s3",
+      "x": 6,
+      "y": 8,
+      "w": 6,
+      "h": 8,
+      "containerId": "section-infrastructure",
+      "config": {
+        "name": "S3 Requests",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "line",
+        "sqlTemplate": "SELECT\n  toStartOfInterval(event_time, INTERVAL {intervalSeconds:Int64} second) AS ts,\n  avg(CurrentMetric_S3Requests)      AS \"All Requests\",\n  avg(ProfileEvent_S3GetObject)      AS \"GetObject Requests\",\n  avg(ProfileEvent_S3PutObject)      AS \"PutObject Requests\",\n  avg(ProfileEvent_S3ListObjects)    AS \"ListObjects Requests\",\n  avg(ProfileEvent_S3UploadPart)     AS \"UploadPart Requests\"\nFROM clickstack_consolidated.metric_log\nWHERE event_time >= fromUnixTimestamp64Milli({startDateMilliseconds:Int64})\n  AND event_time <  fromUnixTimestamp64Milli({endDateMilliseconds:Int64})\nGROUP BY ts\nORDER BY ts"
+      }
+    },
+    {
+      "id": "infra-network",
+      "x": 0,
+      "y": 16,
+      "w": 12,
+      "h": 8,
+      "containerId": "section-infrastructure",
+      "config": {
+        "name": "Network (machine-wide receive/send bytes)",
+        "configType": "sql",
+        "connection": "Local ClickHouse",
+        "displayType": "line",
+        "numberFormat": {
+          "output": "byte",
+          "mantissa": 2
+        },
+        "sqlTemplate": "SELECT\n  toStartOfInterval(event_time, INTERVAL {intervalSeconds:Int64} second) AS ts,\n  metric,\n  avg(value) AS \"Bytes\"\nFROM clickstack_consolidated.asynchronous_metric_log\nWHERE event_time >= fromUnixTimestamp64Milli({startDateMilliseconds:Int64})\n  AND event_time <  fromUnixTimestamp64Milli({endDateMilliseconds:Int64})\n  AND (metric ILIKE 'NetworkReceiveBytes_%' OR metric ILIKE 'NetworkSendBytes_%')\nGROUP BY ts, metric\nORDER BY ts"
+      }
+    }
+  ]
+}
